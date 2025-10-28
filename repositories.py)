@@ -1,0 +1,143 @@
+from database import db
+from models import *
+
+class ClientRepository:
+    @staticmethod
+    def get_all_clients():
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM client")
+        clients = cursor.fetchall()
+        conn.close()
+        return [Client(*client) for client in clients]
+    
+    @staticmethod
+    def get_client_by_id(c_id):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM client WHERE c_id = ?", (c_id,))
+        client = cursor.fetchone()
+        conn.close()
+        return Client(*client) if client else None
+    
+    @staticmethod
+    def create_client(client_data):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO client (c_name, c_mail, c_id_card, c_phone, c_password, c_address)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (client_data['c_name'], client_data['c_mail'], client_data['c_id_card'],
+              client_data['c_phone'], client_data['c_password'], client_data.get('c_address')))
+        conn.commit()
+        client_id = cursor.lastrowid
+        conn.close()
+        return client_id
+    
+    @staticmethod
+    def update_client(c_id, client_data):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE client SET c_name=?, c_mail=?, c_id_card=?, c_phone=?, c_password=?, c_address=?
+            WHERE c_id=?
+        ''', (client_data['c_name'], client_data['c_mail'], client_data['c_id_card'],
+              client_data['c_phone'], client_data['c_password'], client_data.get('c_address'), c_id))
+        conn.commit()
+        conn.close()
+    
+    @staticmethod
+    def delete_client(c_id):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM client WHERE c_id = ?", (c_id,))
+        conn.commit()
+        conn.close()
+
+class BankCardRepository:
+    @staticmethod
+    def get_cards_by_client(c_id):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM bank_card WHERE b_c_id = ?", (c_id,))
+        cards = cursor.fetchall()
+        conn.close()
+        return [BankCard(*card) for card in cards]
+    
+    @staticmethod
+    def create_card(card_data):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO bank_card (b_number, b_type, b_c_id, b_expiry_date)
+            VALUES (?, ?, ?, ?)
+        ''', (card_data['b_number'], card_data['b_type'], 
+              card_data['b_c_id'], card_data.get('b_expiry_date')))
+        conn.commit()
+        conn.close()
+    
+    @staticmethod
+    def get_card_by_number(b_number):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM bank_card WHERE b_number = ?", (b_number,))
+        card = cursor.fetchone()
+        conn.close()
+        return BankCard(*card) if card else None
+
+class InsuranceRepository:
+    @staticmethod
+    def get_all_insurances():
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM insurance")
+        insurances = cursor.fetchall()
+        conn.close()
+        return [Insurance(*insurance) for insurance in insurances]
+    
+    @staticmethod
+    def get_insurance_by_id(i_id):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM insurance WHERE i_id = ?", (i_id,))
+        insurance = cursor.fetchone()
+        conn.close()
+        return Insurance(*insurance) if insurance else None
+    
+    @staticmethod
+    def purchase_insurance(client_id, insurance_id, purchase_data):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO client_insurance (client_id, insurance_id, purchase_date, premium_amount, coverage_period)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (client_id, insurance_id, purchase_data['purchase_date'],
+              purchase_data['premium_amount'], purchase_data['coverage_period']))
+        conn.commit()
+        conn.close()
+
+class TransactionRepository:
+    @staticmethod
+    def create_transaction(transaction_data):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO transactions (from_card, to_card, amount, description)
+            VALUES (?, ?, ?, ?)
+        ''', (transaction_data['from_card'], transaction_data['to_card'],
+              transaction_data['amount'], transaction_data['description']))
+        conn.commit()
+        conn.close()
+    
+    @staticmethod
+    def get_client_transactions(c_id):
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT t.* FROM transactions t
+            JOIN bank_card bc ON t.from_card = bc.b_number OR t.to_card = bc.b_number
+            WHERE bc.b_c_id = ?
+        ''', (c_id,))
+        transactions = cursor.fetchall()
+        conn.close()
+        return transactions
